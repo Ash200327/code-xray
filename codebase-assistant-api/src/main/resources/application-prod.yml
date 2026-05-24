@@ -1,0 +1,13 @@
+codeassistant:
+  security:
+    enabled: true
+
+# In production the ALLOWED_ORIGINS env var is injected by Render.
+# Set it to your Vercel frontend URL, e.g. https://code-xray.vercel.app
+allowed:
+  origins: ${ALLOWED_ORIGINS:http://localhost:5173}
+
+logging:
+  level:
+    org.springframework.ai: WARN
+    com.codeassistant: INFO

@@ -1,0 +1,105 @@
+spring:
+  datasource:
+    url: jdbc:postgresql://${DB_HOST:127.0.0.1}:${DB_PORT:5433}/${DB_NAME:codeassistant_db}
+    username: ${DB_USERNAME:codeassistant}
+    password: ${DB_PASSWORD:secret}
+    driver-class-name: org.postgresql.Driver
+
+  ai:
+    openai:
+      api-key: ${OPENAI_API_KEY}
+      embedding:
+        options:
+          model: text-embedding-3-small
+      chat:
+        options:
+          model: gpt-4o-mini
+          temperature: 0.2
+    vectorstore:
+      pgvector:
+        initialize-schema: true
+        dimensions: 1536
+        distance-type: COSINE_DISTANCE
+        index-type: HNSW
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: false
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    baseline-version: 0
+  mvc:
+    async:
+      request-timeout: 60000
+
+server:
+  port: 8080
+
+logging:
+  level:
+    org.springframework.ai: INFO
+    com.codeassistant: DEBUG
+
+codeassistant:
+  ingestion:
+    max-file-size-bytes: 512000
+    skipped-directories:
+      - .git
+      - node_modules
+      - __pycache__
+      - target
+      - build
+      - .gradle
+      - .idea
+      - .vscode
+      - dist
+      - out
+      - .mvn
+    accepted-extensions:
+      - java
+      - kt
+      - py
+      - ts
+      - tsx
+      - js
+      - jsx
+      - go
+      - cs
+      - rs
+      - cpp
+      - c
+      - h
+      - md
+      - yaml
+      - yml
+      - xml
+      - sql
+      - sh
+      - json
+    excluded-globs:
+      - "**/*.min.js"
+      - "**/*.map"
+      - "**/*.class"
+      - "**/*.jar"
+      - "**/*.war"
+      - "**/*.ear"
+      - "**/*.exe"
+      - "**/*.dll"
+      - "**/*.so"
+      - "**/*.dylib"
+      - "**/generated/**"
+    jobs:
+      max-attempts: 3
+  retrieval:
+    keyword:
+      vector-table: vector_store
+  security:
+    enabled: false
+    jwt:
+      secret: change-me-please-change-me-please-1234567890
+      access-token-seconds: 3600
