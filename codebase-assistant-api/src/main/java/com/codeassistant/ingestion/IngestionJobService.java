@@ -144,7 +144,7 @@ public class IngestionJobService {
         if ("SUCCESS".equals(result.getStatus())) {
             entity.setStatus(IngestionJobStatus.COMPLETED.name());
             entity.setErrorMessage(null);
-            repositoryRepository.findByRepoUrlAndBranch(entity.getRepoUrl(), entity.getBranch())
+            repositoryRepository.findTopByRepoUrlAndBranchOrderByUpdatedAtDesc(entity.getRepoUrl(), entity.getBranch())
                     .ifPresent(repository -> {
                         repository.setLastIngestedAt(Instant.now());
                         repositoryRepository.save(repository);
@@ -285,10 +285,10 @@ public class IngestionJobService {
 
     private RepositoryEntity resolveOrCreateRepository(String repoUrl, String branch, UserEntity currentUser) {
         if (currentUser != null) {
-            return repositoryRepository.findByRepoUrlAndBranchAndUserId(repoUrl, branch, currentUser.getId())
+            return repositoryRepository.findTopByRepoUrlAndBranchAndUserIdOrderByUpdatedAtDesc(repoUrl, branch, currentUser.getId())
                     .orElseGet(() -> createRepository(repoUrl, branch, currentUser));
         }
-        return repositoryRepository.findByRepoUrlAndBranch(repoUrl, branch)
+        return repositoryRepository.findTopByRepoUrlAndBranchOrderByUpdatedAtDesc(repoUrl, branch)
                 .orElseGet(() -> {
                     RepositoryEntity repository = new RepositoryEntity();
                     repository.setId(UUID.randomUUID());

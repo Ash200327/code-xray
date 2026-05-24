@@ -11,6 +11,6 @@ public interface RepositoryEntityRepository extends JpaRepository<RepositoryEnti
     List<RepositoryEntity> findByWorkspace_Id(UUID workspaceId);
     List<RepositoryEntity> findByUserIdOrderByUpdatedAtDesc(UUID userId);
     List<RepositoryEntity> findByWorkspace_IdAndUserId(UUID workspaceId, UUID userId);
-    Optional<RepositoryEntity> findByRepoUrlAndBranch(String repoUrl, String branch);
-    Optional<RepositoryEntity> findByRepoUrlAndBranchAndUserId(String repoUrl, String branch, UUID userId);
+    Optional<RepositoryEntity> findTopByRepoUrlAndBranchOrderByUpdatedAtDesc(String repoUrl, String branch);
+    Optional<RepositoryEntity> findTopByRepoUrlAndBranchAndUserIdOrderByUpdatedAtDesc(String repoUrl, String branch, UUID userId);
 }

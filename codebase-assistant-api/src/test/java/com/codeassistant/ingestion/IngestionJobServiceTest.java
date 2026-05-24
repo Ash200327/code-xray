@@ -32,7 +32,7 @@ class IngestionJobServiceTest {
         ingestionJobRepository = mock(IngestionJobRepository.class);
         RepositoryEntityRepository repositoryRepository = mock(RepositoryEntityRepository.class);
 
-        when(repositoryRepository.findByRepoUrlAndBranch(any(), any())).thenReturn(Optional.empty());
+        when(repositoryRepository.findTopByRepoUrlAndBranchOrderByUpdatedAtDesc(any(), any())).thenReturn(Optional.empty());
         when(ingestionJobRepository.save(any(IngestionJobEntity.class))).thenAnswer(inv -> inv.getArgument(0));
 
         ingestionJobService = new IngestionJobService(

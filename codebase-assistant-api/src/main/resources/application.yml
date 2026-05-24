@@ -36,6 +36,8 @@ spring:
   mvc:
     async:
       request-timeout: 60000
+allowed:
+  origins: ${ALLOWED_ORIGINS:http://localhost:5173,http://localhost:3000}
 
 server:
   port: 8080
