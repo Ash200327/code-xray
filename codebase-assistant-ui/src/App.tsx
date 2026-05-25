@@ -339,14 +339,14 @@ export default function App() {
               setLeftSidebarCollapsed(true);
               setRightSidebarCollapsed(true);
             }}
-            className="absolute inset-0 bg-black/60 backdrop-blur-xs z-35 transition-all duration-300 pointer-events-auto"
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm z-30 transition-all duration-300 pointer-events-auto"
           />
         )}
 
         {/* Left Sidebar */}
         <aside
           style={{ width: leftSidebarCollapsed ? 0 : (isSmallScreen ? 280 : leftSidebarWidth) }}
-          className={`flex flex-col bg-dark-900 overflow-y-auto overflow-x-hidden select-none z-45
+          className={`flex flex-col bg-dark-900 overflow-y-auto overflow-x-hidden select-none z-40
                      ${isDraggingLeft ? '' : 'transition-all duration-200 ease-in-out'}
                      ${isSmallScreen ? 'absolute left-0 top-0 bottom-0 h-full shadow-2xl border-r border-dark-500/80' : 'relative border-r border-dark-500/60 shrink-0'}`}
         >
@@ -536,7 +536,7 @@ export default function App() {
         {/* Right Sidebar (Insights, Split Views, and Citation pre/code view) */}
         <aside
           style={{ width: rightSidebarCollapsed ? 0 : (isSmallScreen ? 'min(420px, 90vw)' : rightSidebarWidth) }}
-          className={`flex flex-col bg-dark-900 overflow-hidden select-none z-45
+          className={`flex flex-col bg-dark-900 overflow-hidden select-none z-40
                      ${isDraggingRight ? '' : 'transition-all duration-200 ease-in-out'}
                      ${isSmallScreen ? 'absolute right-0 top-0 bottom-0 h-full border-l border-dark-500/80 shadow-2xl w-full max-w-[420px]' : 'relative border-l border-dark-500/60 shrink-0'}`}
         >
