@@ -36,7 +36,7 @@ export function MessageBubble({ message, repoUrl, isStreaming, onSelectCitation 
       </div>
 
       {/* Bubble */}
-      <div className={`max-w-[75%] ${isUser ? 'items-end' : 'items-start'} flex flex-col select-text`}>
+      <div className={`max-w-[85%] sm:max-w-[75%] min-w-0 ${isUser ? 'items-end' : 'items-start'} flex flex-col select-text`}>
         <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed relative select-text
                           ${isUser
                             ? 'bg-gradient-to-br from-violet-600 to-blue-600 text-white rounded-tr-sm shadow-lg shadow-violet-500/20'

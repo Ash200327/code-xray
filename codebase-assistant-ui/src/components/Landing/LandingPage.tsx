@@ -36,19 +36,19 @@ export function LandingPage({ onStartAuth }: Props) {
       <div className="absolute bottom-[10%] right-[-10%] w-[50%] h-[50%] bg-cyan-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Glass header */}
-      <header className="sticky top-0 z-50 backdrop-blur-md bg-dark-950/70 border-b border-dark-500/40 px-6 py-4 flex items-center justify-between shadow-lg shadow-black/10">
-        <div className="flex items-center gap-3">
+      <header className="sticky top-0 z-50 backdrop-blur-md bg-dark-950/70 border-b border-dark-500/40 px-4 py-3 sm:px-6 sm:py-4 flex items-center justify-between shadow-lg shadow-black/10">
+        <div className="flex items-center gap-2 sm:gap-3">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0">
             <span className="text-white text-xs font-bold font-mono">CX</span>
           </div>
-          <span className="text-sm font-extrabold tracking-widest text-[#e6edf3] uppercase font-mono select-none">Code-Xray</span>
+          <span className="text-sm font-extrabold tracking-widest text-[#e6edf3] uppercase font-mono select-none hidden min-[400px]:inline">Code-Xray</span>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4">
           <a href="#features" className="text-xs text-dark-350 hover:text-white transition duration-150">Features</a>
-          <a href="#tech" className="text-xs text-dark-350 hover:text-white transition duration-150 mr-4">Stack</a>
+          <a href="#tech" className="text-xs text-dark-350 hover:text-white transition duration-150 mr-2 sm:mr-4">Stack</a>
           <button
             onClick={onStartAuth}
-            className="text-xs font-semibold text-white bg-dark-800 hover:bg-dark-700 border border-dark-500 px-4 py-2 rounded-lg transition duration-200 active:scale-95 shadow-md"
+            className="text-xs font-semibold text-white bg-dark-800 hover:bg-dark-700 border border-dark-500 px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg transition duration-200 active:scale-95 shadow-md"
           >
             Sign In
           </button>

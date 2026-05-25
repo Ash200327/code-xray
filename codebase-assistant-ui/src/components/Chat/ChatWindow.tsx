@@ -53,7 +53,7 @@ export function ChatWindow({ repoUrl, suggestedQuestion, conversationId, initial
     <div className="flex flex-col flex-1 overflow-hidden">
 
       {/* Chat header */}
-      <div className="flex items-center justify-between px-5 py-3 bg-dark-800/80 backdrop-blur border-b border-dark-500 shrink-0">
+      <div className="flex items-center justify-between px-3 py-2.5 sm:px-5 sm:py-3 bg-dark-800/80 backdrop-blur border-b border-dark-500 shrink-0">
         <div className="flex items-center gap-2">
           <div className={`w-2 h-2 rounded-full ${isStreaming ? 'bg-violet-400 animate-pulse' : 'bg-emerald-400'}`} />
           <span className="text-sm font-medium text-[#e6edf3]">
@@ -77,7 +77,7 @@ export function ChatWindow({ repoUrl, suggestedQuestion, conversationId, initial
       </div>
 
       {/* Message list */}
-      <div className="flex-1 overflow-y-auto px-5 py-6 space-y-1">
+      <div className="flex-1 overflow-y-auto px-3 py-4 sm:px-5 sm:py-6 space-y-1">
         {messages.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-full gap-3 text-center">
             <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-600/20 to-cyan-500/20
@@ -105,13 +105,13 @@ export function ChatWindow({ repoUrl, suggestedQuestion, conversationId, initial
       </div>
 
       {/* Input bar */}
-      <div className="shrink-0 px-5 py-4 bg-dark-800/80 backdrop-blur border-t border-dark-500">
-        <div className={`flex items-end gap-3 bg-dark-700 border rounded-xl px-3 py-2.5 transition-all duration-200
+      <div className="shrink-0 px-3 py-3 sm:px-5 sm:py-4 bg-dark-800/80 backdrop-blur border-t border-dark-500">
+        <div className={`flex items-end gap-3 bg-dark-700 border rounded-xl px-3 py-2 transition-all duration-200
                           ${isStreaming ? 'border-violet-500/30' : 'border-dark-500 focus-within:border-violet-500/60 focus-within:ring-1 focus-within:ring-violet-500/20'}`}>
           <textarea
             ref={textareaRef}
-            className="flex-1 bg-transparent text-sm text-[#e6edf3] placeholder-dark-400
-                       outline-none resize-none leading-relaxed min-h-[20px] max-h-32"
+            className="flex-1 bg-transparent text-base sm:text-sm text-[#e6edf3] placeholder-dark-400
+                       outline-none resize-none leading-relaxed min-h-[24px] sm:min-h-[20px] max-h-32"
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

@@ -82,12 +82,18 @@ export default function App() {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b') {
         e.preventDefault();
-        setLeftSidebarCollapsed(prev => !prev);
+        setLeftSidebarCollapsed(prev => {
+          const next = !prev;
+          if (!next && isSmallScreen) {
+            setRightSidebarCollapsed(true);
+          }
+          return next;
+        });
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
+  }, [isSmallScreen]);
 
   // Monitor window size to adapt layout responsively
   useEffect(() => {
@@ -212,6 +218,9 @@ export default function App() {
     setSelectedCitation(citation);
     setRightTab('citation');
     setRightSidebarCollapsed(false);
+    if (isSmallScreen) {
+      setLeftSidebarCollapsed(true);
+    }
   };
 
   // Left sidebar resizing logic
@@ -290,7 +299,15 @@ export default function App() {
       <header className="flex items-center gap-4 px-5 py-3 bg-dark-900 border-b border-dark-500/50 shrink-0 shadow-lg shadow-black/20 z-10">
         <div className="flex items-center gap-3">
           <button
-            onClick={() => setLeftSidebarCollapsed(prev => !prev)}
+            onClick={() => {
+              setLeftSidebarCollapsed(prev => {
+                const next = !prev;
+                if (!next && isSmallScreen) {
+                  setRightSidebarCollapsed(true);
+                }
+                return next;
+              });
+            }}
             className="p-1.5 rounded-lg bg-dark-800 hover:bg-dark-700 border border-dark-500 text-dark-300 hover:text-white transition-all duration-150 active:scale-95"
             title="Toggle Sidebar (Ctrl+B)"
           >
@@ -306,16 +323,16 @@ export default function App() {
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-600 to-cyan-500 flex items-center justify-center shadow-lg shadow-violet-500/20 shrink-0">
             <span className="text-white text-xs font-bold font-mono">CX</span>
           </div>
-          <h1 className="text-sm font-bold gradient-text tracking-tight uppercase shrink-0">Code-Xray</h1>
+          <h1 className="text-sm font-bold gradient-text tracking-tight uppercase shrink-0 hidden min-[480px]:block">Code-Xray</h1>
         </div>
 
         <div className="h-4 w-px bg-dark-500 hidden sm:block" />
         <span className="text-xs text-dark-400 hidden sm:inline-block">Signed in as <b className="text-dark-200">{user.displayName}</b></span>
         
         {activeRepoUrl && (
-          <div className="ml-auto flex items-center gap-2 max-w-[150px] sm:max-w-none">
+          <div className="ml-auto flex items-center gap-1.5 max-w-[110px] min-[400px]:max-w-[180px] sm:max-w-none">
             <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse-slow shrink-0" />
-            <span className="text-xs font-mono text-cyan-400 bg-dark-800 border border-dark-500 px-3 py-1 rounded-full shadow-inner truncate">
+            <span className="text-xs font-mono text-cyan-400 bg-dark-800 border border-dark-500 px-2 py-0.5 sm:px-3 sm:py-1 rounded-full shadow-inner truncate">
               {repoShortName}
             </span>
           </div>
@@ -323,7 +340,7 @@ export default function App() {
         
         <button
           onClick={handleLogout}
-          className={`text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-3 py-1.5 rounded-lg bg-red-950/10 hover:bg-red-950/20 transition-all duration-150 active:scale-95 ${!activeRepoUrl ? 'ml-auto' : ''}`}
+          className={`text-xs text-red-400 hover:text-red-300 border border-red-500/30 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg bg-red-950/10 hover:bg-red-950/20 transition-all duration-150 active:scale-95 ${!activeRepoUrl ? 'ml-auto' : ''}`}
         >
           Logout
         </button>
@@ -348,7 +365,8 @@ export default function App() {
           style={{ width: leftSidebarCollapsed ? 0 : (isSmallScreen ? 280 : leftSidebarWidth) }}
           className={`flex flex-col bg-dark-900 overflow-y-auto overflow-x-hidden select-none z-40
                      ${isDraggingLeft ? '' : 'transition-all duration-200 ease-in-out'}
-                     ${isSmallScreen ? 'absolute left-0 top-0 bottom-0 h-full shadow-2xl border-r border-dark-500/80' : 'relative border-r border-dark-500/60 shrink-0'}`}
+                     ${leftSidebarCollapsed ? 'border-r-0 shadow-none' : (isSmallScreen ? 'border-r border-dark-500/80 shadow-2xl' : 'border-r border-dark-500/60')}
+                     ${isSmallScreen ? 'absolute left-0 top-0 bottom-0 h-full' : 'relative shrink-0'}`}
         >
           <div className="w-[280px]"> {/* Keep inner controls static size */}
             <IngestForm onSuccess={handleIngestSuccess} />
@@ -427,6 +445,9 @@ export default function App() {
                     } else {
                       setRightTab('summary');
                       setRightSidebarCollapsed(false);
+                      if (isSmallScreen) {
+                        setLeftSidebarCollapsed(true);
+                      }
                     }
                   }}
                   disabled={!activeRepository}
@@ -445,6 +466,9 @@ export default function App() {
                     } else {
                       setRightTab('docs');
                       setRightSidebarCollapsed(false);
+                      if (isSmallScreen) {
+                        setLeftSidebarCollapsed(true);
+                      }
                     }
                   }}
                   disabled={!activeRepository}
@@ -538,7 +562,8 @@ export default function App() {
           style={{ width: rightSidebarCollapsed ? 0 : (isSmallScreen ? 'min(420px, 90vw)' : rightSidebarWidth) }}
           className={`flex flex-col bg-dark-900 overflow-hidden select-none z-40
                      ${isDraggingRight ? '' : 'transition-all duration-200 ease-in-out'}
-                     ${isSmallScreen ? 'absolute right-0 top-0 bottom-0 h-full border-l border-dark-500/80 shadow-2xl w-full max-w-[420px]' : 'relative border-l border-dark-500/60 shrink-0'}`}
+                     ${rightSidebarCollapsed ? 'border-l-0 shadow-none' : (isSmallScreen ? 'border-l border-dark-500/80 shadow-2xl' : 'border-l border-dark-500/60')}
+                     ${isSmallScreen ? 'absolute right-0 top-0 bottom-0 h-full w-full max-w-[420px]' : 'relative shrink-0'}`}
         >
           <div className="h-full flex flex-col" style={{ width: isSmallScreen ? '100%' : rightSidebarWidth }}>
             <header className="flex items-center justify-between px-4 py-3 bg-dark-900 border-b border-dark-500/50 shrink-0 shadow-sm">
