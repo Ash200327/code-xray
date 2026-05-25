@@ -43,13 +43,13 @@ public class ChatController {
             @RequestParam String question,
             @RequestParam(required = false) String repoUrl,
             @RequestParam(required = false) UUID conversationId,
-            @RequestParam(required = false) String token,
+            @RequestParam(value = "token", required = false) String streamToken,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         log.info("Stream chat: question={}, conversationId={}", question, conversationId);
         String effectiveAuthHeader = authHeader;
-        if ((effectiveAuthHeader == null || effectiveAuthHeader.isBlank()) && token != null && !token.isBlank()) {
-            effectiveAuthHeader = "Bearer " + token;
+        if ((effectiveAuthHeader == null || effectiveAuthHeader.isBlank()) && streamToken != null && !streamToken.isBlank()) {
+            effectiveAuthHeader = "Bearer " + streamToken;
         }
         UserEntity currentUser = currentUserResolver.resolve(effectiveAuthHeader).orElse(null);
         if (securityMode.isEnabled() && currentUser == null) {
