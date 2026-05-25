@@ -11,7 +11,14 @@ export function useIngestionJobProgress() {
       clientRef.current = null;
     }
 
-    const wsURL = import.meta.env.VITE_WS_URL || `${window.location.protocol === 'https:' ? 'wss' : 'ws'}://${window.location.hostname}:8080/ws`;
+    let wsURL = import.meta.env.VITE_WS_URL;
+    if (!wsURL) {
+      const proto = window.location.protocol === 'https:' ? 'wss' : 'ws';
+      const isDev = window.location.port && window.location.port !== '80' && window.location.port !== '443';
+      wsURL = isDev
+        ? `${proto}://${window.location.hostname}:8080/ws`
+        : `${proto}://${window.location.host}/ws`;
+    }
 
     const client = new Client({
       brokerURL: wsURL,
