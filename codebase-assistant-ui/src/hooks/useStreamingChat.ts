@@ -42,9 +42,15 @@ export function useStreamingChat() {
     const es = new EventSource(`${BASE_URL}/api/chat/stream?${params}`);
 
     es.addEventListener('message', (event) => {
-      const chunk = event.data ?? '';
+      let text = event.data ?? '';
+      try {
+        const parsed = JSON.parse(event.data);
+        text = parsed.text ?? '';
+      } catch {
+        // Fallback for raw text streams
+      }
       setMessages(prev => prev.map(m =>
-        m.id === assistantId ? { ...m, content: appendChunk(m.content, chunk) } : m
+        m.id === assistantId ? { ...m, content: m.content + text } : m
       ));
     });
 
@@ -85,21 +91,6 @@ export function useStreamingChat() {
   const setMessageHistory = useCallback((history: ChatMessage[]) => setMessages(history), []);
 
   return { messages, isStreaming, sendMessage, clearMessages, setMessageHistory };
-}
-
-function appendChunk(existing: string, chunk: string): string {
-  if (!existing) return chunk;
-  if (!chunk) return existing;
-
-  const prev = existing[existing.length - 1];
-  const next = chunk[0];
-  const needsSpace =
-    /[A-Za-z0-9]/.test(prev) &&
-    /[A-Za-z0-9]/.test(next) &&
-    !chunk.startsWith("'") &&
-    !chunk.startsWith("’");
-
-  return needsSpace ? `${existing} ${chunk}` : existing + chunk;
 }
 
 function createMessageId(): number {

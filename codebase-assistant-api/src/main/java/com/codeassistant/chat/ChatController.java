@@ -60,13 +60,23 @@ public class ChatController {
         AtomicReference<StringBuilder> answerBuffer = new AtomicReference<>(new StringBuilder());
         AtomicReference<List<Map<String, Object>>> citationsBuffer = new AtomicReference<>(List.of());
 
-        // Stream answer tokens
+        // Stream answer tokens wrapped in JSON to preserve spacing
         Flux<ServerSentEvent<String>> answerStream = chatService.streamAnswer(question, effectiveRepoUrl, memoryTurns)
                 .doOnNext(token -> answerBuffer.get().append(token))
-                .map(token -> ServerSentEvent.<String>builder()
-                        .event("message")
-                        .data(token)
-                        .build());
+                .map(token -> {
+                    try {
+                        String json = objectMapper.writeValueAsString(Map.of("text", token));
+                        return ServerSentEvent.<String>builder()
+                                .event("message")
+                                .data(json)
+                                .build();
+                    } catch (JsonProcessingException e) {
+                        return ServerSentEvent.<String>builder()
+                                .event("message")
+                                .data("{\"text\":\"\"}")
+                                .build();
+                    }
+                });
 
         // After answer completes, emit citations as a final event
         Flux<ServerSentEvent<String>> citationsEvent = Mono
