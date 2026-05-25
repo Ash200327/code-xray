@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ChatMessage, Citation } from '../types';
-import { BASE_URL } from '../api/http';
+import { BASE_URL, getAccessToken } from '../api/http';
 
 export function useStreamingChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,6 +34,10 @@ export function useStreamingChat() {
     const params = new URLSearchParams({ question, repoUrl });
     if (conversationId) {
       params.set('conversationId', conversationId);
+    }
+    const token = getAccessToken();
+    if (token) {
+      params.set('token', token);
     }
     const es = new EventSource(`${BASE_URL}/api/chat/stream?${params}`);
 

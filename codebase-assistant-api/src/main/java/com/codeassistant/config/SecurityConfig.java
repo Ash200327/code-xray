@@ -39,6 +39,7 @@ public class SecurityConfig {
         http.authorizeHttpRequests(auth -> auth
                 .requestMatchers("/api/auth/**").permitAll()
                 .requestMatchers("/ws/**", "/topic/**").permitAll()
+                .requestMatchers("/api/chat/stream").permitAll()
                 .anyRequest().authenticated()
         );
 

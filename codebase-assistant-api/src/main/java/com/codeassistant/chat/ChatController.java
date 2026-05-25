@@ -43,10 +43,15 @@ public class ChatController {
             @RequestParam String question,
             @RequestParam(required = false) String repoUrl,
             @RequestParam(required = false) UUID conversationId,
+            @RequestParam(required = false) String token,
             @RequestHeader(value = "Authorization", required = false) String authHeader) {
 
         log.info("Stream chat: question={}, conversationId={}", question, conversationId);
-        UserEntity currentUser = currentUserResolver.resolve(authHeader).orElse(null);
+        String effectiveAuthHeader = authHeader;
+        if ((effectiveAuthHeader == null || effectiveAuthHeader.isBlank()) && token != null && !token.isBlank()) {
+            effectiveAuthHeader = "Bearer " + token;
+        }
+        UserEntity currentUser = currentUserResolver.resolve(effectiveAuthHeader).orElse(null);
         if (securityMode.isEnabled() && currentUser == null) {
             throw new UnauthorizedException("Authentication required");
         }
