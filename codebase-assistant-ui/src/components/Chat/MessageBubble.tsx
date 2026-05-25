@@ -37,16 +37,16 @@ export function MessageBubble({ message, repoUrl, isStreaming, onSelectCitation 
 
       {/* Bubble */}
       <div className={`max-w-[85%] sm:max-w-[75%] min-w-0 ${isUser ? 'items-end' : 'items-start'} flex flex-col select-text`}>
-        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed relative select-text
+        <div className={`rounded-2xl px-4 py-3 text-sm leading-relaxed relative select-text w-full min-w-0
                           ${isUser
                             ? 'bg-gradient-to-br from-violet-600 to-blue-600 text-white rounded-tr-sm shadow-lg shadow-violet-500/20'
                             : 'bg-dark-700 border border-dark-500 text-[#e6edf3] rounded-tl-sm pr-10'
                           }`}>
           {isUser ? (
-            <p className="whitespace-pre-wrap">{message.content}</p>
+            <p className="whitespace-pre-wrap break-words">{message.content}</p>
           ) : (
             <>
-              <div className={`chat-prose ${isStreaming && !message.content ? '' : ''}`}>
+              <div className={`chat-prose break-words ${isStreaming && !message.content ? '' : ''}`}>
                 {message.content ? (
                   <>
                     <ReactMarkdown
@@ -59,7 +59,7 @@ export function MessageBubble({ message, repoUrl, isStreaming, onSelectCitation 
                               <LazyCodeBlock language={match[1]} code={String(children).replace(/\n$/, '')} />
                             </Suspense>
                           ) : (
-                            <code className="bg-dark-600 text-violet-300 px-1.5 py-0.5 rounded text-xs font-mono">
+                            <code className="bg-dark-600 text-violet-300 px-1.5 py-0.5 rounded text-xs font-mono break-all whitespace-pre-wrap">
                               {children}
                             </code>
                           );
