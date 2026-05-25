@@ -22,7 +22,7 @@ spring-shell.log
 
 # Node / Frontend
 node_modules/
-dist/
+# dist/
 build/
 .env
 .env.local
