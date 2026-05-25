@@ -77,6 +77,13 @@ export default function App() {
     void loadInsights(activeRepository.id, rightTab);
   }, [activeRepository, rightTab, rightSidebarCollapsed]);
 
+  // Open left sidebar automatically upon successful login/authentication
+  useEffect(() => {
+    if (user) {
+      setLeftSidebarCollapsed(false);
+    }
+  }, [user]);
+
   // Global shortcut to toggle Left Sidebar: Ctrl+B
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
