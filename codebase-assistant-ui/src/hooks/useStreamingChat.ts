@@ -1,5 +1,6 @@
 import { useState, useCallback } from 'react';
 import { ChatMessage, Citation } from '../types';
+import { BASE_URL } from '../api/http';
 
 export function useStreamingChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -34,7 +35,7 @@ export function useStreamingChat() {
     if (conversationId) {
       params.set('conversationId', conversationId);
     }
-    const es = new EventSource(`/api/chat/stream?${params}`);
+    const es = new EventSource(`${BASE_URL}/api/chat/stream?${params}`);
 
     es.addEventListener('message', (event) => {
       const chunk = event.data ?? '';
