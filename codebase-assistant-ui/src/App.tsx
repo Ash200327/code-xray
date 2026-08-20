@@ -16,8 +16,14 @@ import {
   RepositoryView,
   UserView,
 } from './types';
-import { createConversation, deleteConversation, listConversations, listMessages } from './api/conversations';
-import { listRepositories } from './api/repositories';
+import {
+  createConversation,
+  deleteConversation,
+  listConversations,
+  listMessages,
+  renameConversation,
+} from './api/conversations';
+import { deleteRepository, listRepositories } from './api/repositories';
 import { me, logout } from './api/auth';
 import { getAccessToken } from './api/http';
 import { getRepositoryDocs, getRepositorySummary } from './api/insights';
@@ -28,6 +34,7 @@ export default function App() {
   const [activeRepoUrl, setActiveRepoUrl] = useState('');
   const [ingestResult, setIngestResult] = useState<IngestResultData | null>(null);
   const [suggestedQuestion, setSuggestedQuestion] = useState('');
+  const [repositories, setRepositories] = useState<RepositoryView[]>([]);
   const [activeRepository, setActiveRepository] = useState<RepositoryView | null>(null);
   const [conversations, setConversations] = useState<ConversationView[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string>('');
@@ -76,6 +83,13 @@ export default function App() {
       .catch(() => logout())
       .finally(() => setAuthBootstrapped(true));
   }, []);
+
+  // Load repositories whenever user changes
+  useEffect(() => {
+    if (user) {
+      void loadAllRepositories();
+    }
+  }, [user]);
 
   // Fetch insights when right panel opens or tab changes
   useEffect(() => {
@@ -140,6 +154,7 @@ export default function App() {
     setUser(null);
     setActiveRepoUrl('');
     setIngestResult(null);
+    setRepositories([]);
     setActiveRepository(null);
     setConversations([]);
     setActiveConversationId('');
@@ -150,10 +165,20 @@ export default function App() {
     setShowAuth(false);
   };
 
+  async function loadAllRepositories() {
+    try {
+      const list = await listRepositories();
+      setRepositories(list);
+    } catch {
+      // Ignored
+    }
+  }
+
   const handleIngestSuccess = async (repoUrl: string, result: IngestResultData) => {
     setActiveRepoUrl(repoUrl);
     setIngestResult(result);
     await syncRepositoryAndConversations(repoUrl);
+    await loadAllRepositories();
     setSummary(null);
     setDocs(null);
   };
@@ -165,8 +190,9 @@ export default function App() {
   };
 
   async function syncRepositoryAndConversations(repoUrl: string) {
-    const repositories = await listRepositories();
-    const matched = repositories.find(r => normalizeRepoUrl(r.repoUrl) === normalizeRepoUrl(repoUrl)) || null;
+    const reps = await listRepositories();
+    setRepositories(reps);
+    const matched = reps.find(r => normalizeRepoUrl(r.repoUrl) === normalizeRepoUrl(repoUrl)) || null;
     setActiveRepository(matched);
     if (!matched) {
       setConversations([]);
@@ -182,6 +208,50 @@ export default function App() {
     } else {
       setConversations(list);
       setActiveConversationId(prev => (prev && list.some(c => c.id === prev) ? prev : list[0].id));
+    }
+  }
+
+  async function handleSelectRepository(repo: RepositoryView) {
+    setActiveRepository(repo);
+    setActiveRepoUrl(repo.repoUrl);
+    setIngestResult(null);
+    setSummary(null);
+    setDocs(null);
+
+    try {
+      const list = await listConversations(repo.id);
+      if (list.length === 0) {
+        const created = await createConversation(repo.id, 'New Chat');
+        setConversations([created]);
+        setActiveConversationId(created.id);
+      } else {
+        setConversations(list);
+        setActiveConversationId(list[0].id);
+      }
+    } catch {
+      setConversations([]);
+      setActiveConversationId('');
+    }
+  }
+
+  async function handleDeleteRepository(repoId: string) {
+    try {
+      await deleteRepository(repoId);
+      const nextRepos = repositories.filter(r => r.id !== repoId);
+      setRepositories(nextRepos);
+      if (activeRepository?.id === repoId) {
+        if (nextRepos.length > 0) {
+          void handleSelectRepository(nextRepos[0]);
+        } else {
+          setActiveRepository(null);
+          setActiveRepoUrl('');
+          setConversations([]);
+          setActiveConversationId('');
+          setConversationMessages([]);
+        }
+      }
+    } catch (err) {
+      alert(err instanceof Error ? err.message : 'Failed to delete repository');
     }
   }
 
@@ -213,6 +283,15 @@ export default function App() {
     const created = await createConversation(activeRepository.id, `Chat ${conversations.length + 1}`);
     setConversations(prev => [created, ...prev]);
     setActiveConversationId(created.id);
+  }
+
+  async function handleRenameConversation(conversationId: string, newTitle: string) {
+    try {
+      const updated = await renameConversation(conversationId, newTitle);
+      setConversations(prev => prev.map(c => (c.id === conversationId ? { ...c, title: updated.title } : c)));
+    } catch (err) {
+      console.error('Failed to rename conversation:', err);
+    }
   }
 
   async function handleDeleteConversation(conversationId: string) {
@@ -348,11 +427,15 @@ export default function App() {
           isDragging={leftSidebar.isDragging}
           ingestResult={ingestResult}
           onIngestSuccess={handleIngestSuccess}
+          repositories={repositories}
           activeRepository={activeRepository}
+          onSelectRepository={handleSelectRepository}
+          onDeleteRepository={handleDeleteRepository}
           conversations={conversations}
           activeConversationId={activeConversationId}
           onSelectConversation={setActiveConversationId}
           onNewConversation={() => void handleNewConversation()}
+          onRenameConversation={(id, title) => void handleRenameConversation(id, title)}
           onDeleteConversation={id => void handleDeleteConversation(id)}
           rightSidebarCollapsed={rightSidebarCollapsed}
           rightTab={rightTab}
@@ -397,7 +480,7 @@ export default function App() {
               <p className="text-xs text-dark-400 max-w-sm">
                 {activeRepoUrl
                   ? 'Select or create a chat session in the sidebar to start asking questions.'
-                  : 'Start by indexing a repository using the form on the left.'}
+                  : 'Start by indexing a repository or selecting one from your Indexed Repos.'}
               </p>
             </div>
           )}

@@ -9,3 +9,11 @@ export async function listRepositories(): Promise<RepositoryView[]> {
   }
   return body.data;
 }
+
+export async function deleteRepository(id: string): Promise<void> {
+  const res = await apiFetch(`/api/repositories/${id}`, { method: 'DELETE' });
+  const body: ApiResponse<null> = await res.json();
+  if (!res.ok || !body.success) {
+    throw new Error(body.error?.message || `Server error: ${res.status}`);
+  }
+}

@@ -10,17 +10,22 @@ import com.codeassistant.repository.RepositoryEntityRepository;
 import com.codeassistant.repository.WorkspaceRepository;
 import com.codeassistant.util.RepoUrlUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RepositoryService {
 
     private final RepositoryEntityRepository repositoryRepository;
     private final WorkspaceRepository workspaceRepository;
+    private final JdbcTemplate jdbcTemplate;
 
     public RepositoryView create(CreateRepositoryRequest request, UserEntity user) {
         WorkspaceEntity workspace = workspaceRepository.findById(request.getWorkspaceId())
@@ -74,10 +79,23 @@ public class RepositoryService {
         return toView(repositoryRepository.save(entity));
     }
 
+    @Transactional
     public void delete(UUID id, UserEntity user) {
         RepositoryEntity entity = repositoryRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Repository not found: " + id));
         assertOwnership(entity.getUser(), user);
+
+        // Clean up vectors from vector_store
+        try {
+            int deletedVectors = jdbcTemplate.update(
+                    "DELETE FROM vector_store WHERE metadata->>'repo_url' = ?",
+                    entity.getRepoUrl()
+            );
+            log.info("Purged {} vector embeddings for deleted repo {}", deletedVectors, entity.getRepoUrl());
+        } catch (Exception e) {
+            log.warn("Failed to purge vectors for repository {}: {}", entity.getRepoUrl(), e.getMessage());
+        }
+
         repositoryRepository.deleteById(id);
     }
 
