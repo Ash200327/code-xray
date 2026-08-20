@@ -17,6 +17,7 @@ public class HybridRetrievalService {
     private final RagProperties ragProperties;
 
     public List<Map<String, Object>> retrieve(String question, SearchRequest searchRequest, String normalizedRepoUrl) {
+        // Vector search with base question
         List<Map<String, Object>> vectorResults = vectorStore.similaritySearch(searchRequest).stream()
                 .map(doc -> {
                     Map<String, Object> meta = new HashMap<>(doc.getMetadata());
@@ -26,8 +27,35 @@ public class HybridRetrievalService {
                 })
                 .toList();
 
-        List<Map<String, Object>> keywordResults = keywordSearchService.search(question, normalizedRepoUrl, searchRequest.getTopK());
+        // Perform smart query expansion for keyword full-text search
+        String expandedKeywordQuery = expandQuery(question);
+        List<Map<String, Object>> keywordResults = keywordSearchService.search(expandedKeywordQuery, normalizedRepoUrl, searchRequest.getTopK());
+
         return rerankAndMerge(vectorResults, keywordResults, searchRequest.getTopK());
+    }
+
+    private String expandQuery(String originalQuery) {
+        if (originalQuery == null || originalQuery.isBlank()) {
+            return "";
+        }
+        String lower = originalQuery.toLowerCase(Locale.ROOT);
+        StringBuilder expanded = new StringBuilder(originalQuery.trim());
+
+        if (lower.contains("auth") || lower.contains("login") || lower.contains("security") || lower.contains("token") || lower.contains("jwt") || lower.contains("password")) {
+            expanded.append(" OR auth OR security OR SecurityConfig OR login OR jwt OR token");
+        } else if (lower.contains("what") || lower.contains("about") || lower.contains("overview") || lower.contains("architecture") || lower.contains("structure") || lower.contains("explain")) {
+            expanded.append(" OR readme OR architecture OR application OR config OR controller");
+        } else if (lower.contains("database") || lower.contains("db") || lower.contains("schema") || lower.contains("table") || lower.contains("migration") || lower.contains("entity") || lower.contains("model")) {
+            expanded.append(" OR migration OR repository OR entity OR table OR schema OR sql");
+        } else if (lower.contains("api") || lower.contains("endpoint") || lower.contains("route") || lower.contains("controller") || lower.contains("request")) {
+            expanded.append(" OR controller OR requestmapping OR getmapping OR postmapping OR api");
+        } else if (lower.contains("ingest") || lower.contains("chunk") || lower.contains("clone") || lower.contains("walker") || lower.contains("index")) {
+            expanded.append(" OR ingest OR chunk OR cloner OR walker OR filter");
+        } else if (lower.contains("chat") || lower.contains("rag") || lower.contains("stream") || lower.contains("sse") || lower.contains("vector")) {
+            expanded.append(" OR chat OR retrieval OR hybrid OR stream OR sse");
+        }
+
+        return expanded.toString();
     }
 
     private List<Map<String, Object>> rerankAndMerge(List<Map<String, Object>> vectorResults,

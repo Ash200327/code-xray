@@ -11,10 +11,10 @@ import org.springframework.context.annotation.Configuration;
 @ConfigurationProperties(prefix = "codeassistant.rag")
 public class RagProperties {
 
-    private int topK = 8;
+    private int topK = 10;
     private double similarityThreshold = 0.2;
     private double rankDecay = 0.08;
     private double hybridBoost = 0.15;
-    private int maxContextChunks = 5;
+    private int maxContextChunks = 8;
     private int memoryTurnsCount = 8;
 }

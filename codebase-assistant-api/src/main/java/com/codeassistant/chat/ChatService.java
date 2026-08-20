@@ -1,10 +1,12 @@
 package com.codeassistant.chat;
 
+import com.codeassistant.config.RagProperties;
 import com.codeassistant.util.RepoUrlUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.ai.vectorstore.SearchRequest;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Flux;
 
@@ -19,6 +21,8 @@ public class ChatService {
 
     private final ChatClient chatClient;
     private final HybridRetrievalService hybridRetrievalService;
+    private final JdbcTemplate jdbcTemplate;
+    private final RagProperties ragProperties;
 
     public record ChatContext(String promptText, List<Map<String, Object>> citations) {}
 
@@ -31,7 +35,8 @@ public class ChatService {
 
         SearchRequest searchRequest = buildSearchRequest(question, normalizedRepoUrl);
         List<Map<String, Object>> hybridMatches = hybridRetrievalService.retrieve(question, searchRequest, normalizedRepoUrl);
-        String resolvedQuestion = withMemoryAndHybridHints(question, memoryTurns, hybridMatches);
+        String manifest = buildRepositoryManifest(normalizedRepoUrl);
+        String resolvedQuestion = withMemoryAndHybridHints(question, memoryTurns, manifest, hybridMatches);
 
         return new ChatContext(resolvedQuestion, hybridMatches);
     }
@@ -60,8 +65,8 @@ public class ChatService {
     private SearchRequest buildSearchRequest(String query, String normalizedRepoUrl) {
         SearchRequest.Builder builder = SearchRequest.builder()
                 .query(query)
-                .topK(8)
-                .similarityThreshold(0.2);
+                .topK(ragProperties.getTopK())
+                .similarityThreshold(ragProperties.getSimilarityThreshold());
 
         if (normalizedRepoUrl != null) {
             builder.filterExpression("repo_url == '" + normalizedRepoUrl.replace("'", "\\'") + "'");
@@ -70,8 +75,65 @@ public class ChatService {
         return builder.build();
     }
 
-    private String withMemoryAndHybridHints(String question, List<String> memoryTurns, List<Map<String, Object>> hybridMatches) {
+    private String buildRepositoryManifest(String normalizedRepoUrl) {
+        if (normalizedRepoUrl == null || normalizedRepoUrl.isBlank()) {
+            return "";
+        }
+        try {
+            // Fetch top distinct files in the repository
+            String filesSql = """
+                    SELECT DISTINCT metadata->>'file_path' AS file_path
+                    FROM vector_store
+                    WHERE metadata->>'repo_url' = ?
+                    ORDER BY metadata->>'file_path' ASC
+                    LIMIT 30
+                    """;
+            List<String> files = jdbcTemplate.queryForList(filesSql, String.class, normalizedRepoUrl);
+
+            // Fetch README preview if present
+            String readmeSql = """
+                    SELECT content
+                    FROM vector_store
+                    WHERE metadata->>'repo_url' = ?
+                      AND LOWER(metadata->>'file_path') LIKE '%readme%'
+                    LIMIT 1
+                    """;
+            List<String> readmeChunks = jdbcTemplate.queryForList(readmeSql, String.class, normalizedRepoUrl);
+
+            StringBuilder sb = new StringBuilder();
+            sb.append("=== REPOSITORY PROFILE & MANIFEST ===\n");
+            sb.append("Repository: ").append(normalizedRepoUrl).append("\n");
+
+            if (!files.isEmpty()) {
+                sb.append("Key Files In Repository:\n");
+                for (String f : files) {
+                    if (f != null && !f.isBlank()) {
+                        sb.append("- ").append(f).append("\n");
+                    }
+                }
+            }
+
+            if (!readmeChunks.isEmpty() && readmeChunks.get(0) != null) {
+                String snippet = readmeChunks.get(0).trim();
+                if (snippet.length() > 800) {
+                    snippet = snippet.substring(0, 800) + "...";
+                }
+                sb.append("\nREADME / Project Summary Preview:\n").append(snippet).append("\n");
+            }
+            sb.append("=====================================\n\n");
+            return sb.toString();
+        } catch (Exception e) {
+            log.warn("Could not build repository manifest for {}: {}", normalizedRepoUrl, e.getMessage());
+            return "";
+        }
+    }
+
+    private String withMemoryAndHybridHints(String question, List<String> memoryTurns, String manifest, List<Map<String, Object>> hybridMatches) {
         StringBuilder sb = new StringBuilder();
+
+        if (manifest != null && !manifest.isBlank()) {
+            sb.append(manifest);
+        }
 
         if (memoryTurns != null && !memoryTurns.isEmpty()) {
             sb.append("### Conversation History (chronological order):\n");
@@ -82,8 +144,9 @@ public class ChatService {
         }
 
         if (hybridMatches != null && !hybridMatches.isEmpty()) {
-            sb.append("### Codebase Context (Untrusted Data):\n");
-            for (Map<String, Object> hit : hybridMatches.stream().limit(5).toList()) {
+            sb.append("### Retrieved Codebase Snippets:\n");
+            int limit = Math.min(hybridMatches.size(), ragProperties.getMaxContextChunks());
+            for (Map<String, Object> hit : hybridMatches.stream().limit(limit).toList()) {
                 String filePath = String.valueOf(hit.getOrDefault("file_path", "unknown"));
                 Object startLine = hit.getOrDefault("start_line", "?");
                 Object endLine = hit.getOrDefault("end_line", "?");
@@ -100,7 +163,7 @@ public class ChatService {
             }
         }
 
-        sb.append("### Current User Question:\n").append(question);
+        sb.append("### User Question:\n").append(question);
         return sb.toString();
     }
 
@@ -113,7 +176,7 @@ public class ChatService {
             }
             sb.append("\n");
         }
-        sb.append("### Current User Question:\n").append(question);
+        sb.append("### User Question:\n").append(question);
         return sb.toString();
     }
 

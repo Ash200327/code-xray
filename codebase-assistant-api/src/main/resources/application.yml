@@ -98,11 +98,11 @@ codeassistant:
     jobs:
       max-attempts: 3
   rag:
-    top-k: 8
+    top-k: 10
     similarity-threshold: 0.2
     rank-decay: 0.08
     hybrid-boost: 0.15
-    max-context-chunks: 5
+    max-context-chunks: 8
     memory-turns-count: 8
   retrieval:
     keyword:

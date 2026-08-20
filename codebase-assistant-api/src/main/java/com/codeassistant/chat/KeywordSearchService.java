@@ -33,19 +33,22 @@ public class KeywordSearchService {
         String sql = """
                 SELECT content,
                        metadata::text AS metadata_text,
-                       ts_rank_cd(to_tsvector('simple', content), plainto_tsquery('simple', ?)) AS keyword_score
+                       ts_rank_cd(to_tsvector('simple', content || ' ' || COALESCE(metadata->>'file_path', '')),
+                                  websearch_to_tsquery('simple', ?)) AS keyword_score
                 FROM %s
-                WHERE to_tsvector('simple', content) @@ plainto_tsquery('simple', ?)
+                WHERE (to_tsvector('simple', content || ' ' || COALESCE(metadata->>'file_path', '')) @@ websearch_to_tsquery('simple', ?)
+                       OR LOWER(COALESCE(metadata->>'file_path', '')) LIKE LOWER(?))
                   AND (? IS NULL OR metadata->>'repo_url' = ?)
                 ORDER BY keyword_score DESC
                 LIMIT ?
                 """.formatted(vectorTable);
 
         try {
+            String likePattern = "%" + query.trim().split("\\s+")[0] + "%";
             return jdbcTemplate.query(sql, ps -> {
                 ps.setString(1, query);
                 ps.setString(2, query);
-                ps.setString(3, repoUrl);
+                ps.setString(3, likePattern);
                 ps.setString(4, repoUrl);
                 ps.setInt(5, limit);
             }, (rs, rowNum) -> {
