@@ -6,17 +6,19 @@ import com.codeassistant.domain.UserEntity;
 import com.codeassistant.model.RepositoryDocsView;
 import com.codeassistant.model.RepositorySummaryView;
 import com.codeassistant.repository.RepositoryEntityRepository;
+import com.codeassistant.util.RepoUrlUtils;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.ai.chat.client.ChatClient;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 import java.util.UUID;
-import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class RepositoryInsightsService {
@@ -27,13 +29,15 @@ public class RepositoryInsightsService {
 
     public RepositorySummaryView generateSummary(UUID repositoryId, UserEntity currentUser) {
         RepositoryEntity repo = getOwnedRepository(repositoryId, currentUser);
-        List<String> languages = fetchTopLanguages(repo.getRepoUrl());
-        int javaCount = countByLanguage(repo.getRepoUrl(), "java");
-        int tsCount = countByLanguage(repo.getRepoUrl(), "typescript");
-        int jsCount = countByLanguage(repo.getRepoUrl(), "javascript");
-        int mdCount = countByLanguage(repo.getRepoUrl(), "markdown");
+        String repoUrl = RepoUrlUtils.normalizeRepoUrl(repo.getRepoUrl());
 
-        List<String> frameworks = detectFrameworks(repo.getRepoUrl());
+        List<String> languages = fetchTopLanguages(repoUrl);
+        int javaCount = countByLanguage(repoUrl, "java");
+        int tsCount = countByLanguage(repoUrl, "typescript");
+        int jsCount = countByLanguage(repoUrl, "javascript");
+        int mdCount = countByLanguage(repoUrl, "markdown");
+
+        List<String> frameworks = detectFrameworks(repoUrl);
         String architecture = inferArchitecture(frameworks, javaCount, tsCount, jsCount);
 
         return RepositorySummaryView.builder()
@@ -41,10 +45,10 @@ public class RepositoryInsightsService {
                 .repoUrl(repo.getRepoUrl())
                 .architectureType(architecture)
                 .detectedFrameworks(frameworks)
-                .moduleStructure(fetchTopDirectories(repo.getRepoUrl()))
-                .apiLayers(detectApiLayers(repo.getRepoUrl()))
-                .databaseLayers(detectDatabaseLayers(repo.getRepoUrl()))
-                .externalIntegrations(detectIntegrations(repo.getRepoUrl(), mdCount))
+                .moduleStructure(fetchTopDirectories(repoUrl))
+                .apiLayers(detectApiLayers(repoUrl))
+                .databaseLayers(detectDatabaseLayers(repoUrl))
+                .externalIntegrations(detectIntegrations(repoUrl, mdCount))
                 .build();
     }
 
@@ -52,9 +56,9 @@ public class RepositoryInsightsService {
         RepositorySummaryView summary = generateSummary(repositoryId, currentUser);
 
         String basePrompt = """
-                You are generating concise engineering documentation.
+                You are an expert software engineer generating concise, professional engineering documentation.
                 Use the provided repository metadata only.
-                Keep each section practical and brief.
+                Keep each section practical, structured, and informative.
                 """;
 
         String metadata = "Repository: " + summary.getRepositoryName() + "\n"
@@ -65,32 +69,27 @@ public class RepositoryInsightsService {
                 + "Database Layers: " + String.join(", ", summary.getDatabaseLayers()) + "\n"
                 + "Integrations: " + String.join(", ", summary.getExternalIntegrations());
 
-        java.util.concurrent.CompletableFuture<String> readmeFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
-                ask(basePrompt, "Generate a README summary section.\n" + metadata));
+        CompletableFuture<String> readmeFuture = CompletableFuture.supplyAsync(() ->
+                ask(basePrompt, "Generate a concise README summary section for developers:\n" + metadata));
 
-        java.util.concurrent.CompletableFuture<String> onboardingFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
-                ask(basePrompt, "Generate a new engineer onboarding guide.\n" + metadata));
+        CompletableFuture<String> onboardingFuture = CompletableFuture.supplyAsync(() ->
+                ask(basePrompt, "Generate a new engineer onboarding guide with key steps:\n" + metadata));
 
-        java.util.concurrent.CompletableFuture<String> architectureFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
-                ask(basePrompt, "Generate an architecture overview.\n" + metadata));
+        CompletableFuture<String> architectureFuture = CompletableFuture.supplyAsync(() ->
+                ask(basePrompt, "Generate an architecture overview explaining structural layers:\n" + metadata));
 
-        java.util.concurrent.CompletableFuture<String> apiFuture = java.util.concurrent.CompletableFuture.supplyAsync(() ->
-                ask(basePrompt, "Generate an API summary.\n" + metadata));
+        CompletableFuture<String> apiFuture = CompletableFuture.supplyAsync(() ->
+                ask(basePrompt, "Generate an API & integration summary:\n" + metadata));
 
-        String readme = readmeFuture.join();
-        String onboarding = onboardingFuture.join();
-        String architecture = architectureFuture.join();
-        String api = apiFuture.join();
+        CompletableFuture.allOf(readmeFuture, onboardingFuture, architectureFuture, apiFuture).join();
 
         return RepositoryDocsView.builder()
-                .readmeSummary(readme)
-                .onboardingGuide(onboarding)
-                .architectureSummary(architecture)
-                .apiSummary(api)
+                .readmeSummary(readmeFuture.join())
+                .onboardingGuide(onboardingFuture.join())
+                .architectureSummary(architectureFuture.join())
+                .apiSummary(apiFuture.join())
                 .build();
     }
-
-
 
     private RepositoryEntity getOwnedRepository(UUID repositoryId, UserEntity currentUser) {
         RepositoryEntity repo = repositoryRepository.findById(repositoryId)
@@ -228,8 +227,8 @@ public class RepositoryInsightsService {
                     .call()
                     .content();
         } catch (Exception e) {
-            return "Could not generate section right now: " + e.getMessage();
+            log.warn("Docs generation failed for prompt: {}", e.getMessage());
+            return "Documentation section unavailable at this time.";
         }
     }
 }
-

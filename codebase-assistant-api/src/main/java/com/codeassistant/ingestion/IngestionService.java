@@ -2,11 +2,13 @@ package com.codeassistant.ingestion;
 
 import com.codeassistant.model.IngestRequest;
 import com.codeassistant.model.IngestResult;
+import com.codeassistant.util.RepoUrlUtils;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.eclipse.jgit.api.errors.GitAPIException;
 import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.VectorStore;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
@@ -27,6 +29,7 @@ public class IngestionService {
     private final FileWalker fileWalker;
     private final ChunkingService chunkingService;
     private final VectorStore vectorStore;
+    private final JdbcTemplate jdbcTemplate;
 
     private static final int BATCH_SIZE = 100;
 
@@ -51,7 +54,10 @@ public class IngestionService {
             if (progressListener != null) {
                 progressListener.onDiscoveredFiles(files.size());
             }
-            String normalizedRepoUrl = normalizeRepoUrl(request.getRepoUrl());
+            String normalizedRepoUrl = RepoUrlUtils.normalizeRepoUrl(request.getRepoUrl());
+
+            // Idempotent cleanup: Purge existing vectors for this repo_url to prevent duplicate embeddings
+            purgeExistingEmbeddings(normalizedRepoUrl);
 
             List<Document> batch = new ArrayList<>();
             for (Path file : files) {
@@ -140,17 +146,18 @@ public class IngestionService {
                 .build();
     }
 
-    private String normalizeRepoUrl(String repoUrl) {
-        if (repoUrl == null) {
-            return "";
+    private void purgeExistingEmbeddings(String normalizedRepoUrl) {
+        if (normalizedRepoUrl == null || normalizedRepoUrl.isBlank()) {
+            return;
         }
-        String normalized = repoUrl.trim();
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
+        try {
+            int deleted = jdbcTemplate.update(
+                    "DELETE FROM vector_store WHERE metadata->>'repo_url' = ?",
+                    normalizedRepoUrl
+            );
+            log.info("Purged {} existing vector records for repository {}", deleted, normalizedRepoUrl);
+        } catch (Exception e) {
+            log.warn("Could not purge existing embeddings for {}: {}", normalizedRepoUrl, e.getMessage());
         }
-        if (normalized.endsWith(".git")) {
-            normalized = normalized.substring(0, normalized.length() - 4);
-        }
-        return normalized;
     }
 }

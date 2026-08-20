@@ -2,7 +2,6 @@ package com.codeassistant.chat;
 
 import com.codeassistant.api.UnauthorizedException;
 import com.codeassistant.model.CreateMessageRequest;
-import com.codeassistant.model.MessageView;
 import com.codeassistant.domain.UserEntity;
 import com.codeassistant.security.CurrentUserResolver;
 import com.codeassistant.security.SecurityMode;
@@ -38,6 +37,8 @@ public class ChatController {
     private final CurrentUserResolver currentUserResolver;
     private final SecurityMode securityMode;
 
+    private record InitialChatParams(String effectiveRepoUrl, List<String> memoryTurns, ChatService.ChatContext chatContext) {}
+
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     public Flux<ServerSentEvent<String>> streamChat(
             @RequestParam String question,
@@ -55,73 +56,79 @@ public class ChatController {
         if (securityMode.isEnabled() && currentUser == null) {
             throw new UnauthorizedException("Authentication required");
         }
-        String effectiveRepoUrl = resolveRepoUrl(repoUrl, conversationId, currentUser);
-        List<String> memoryTurns = loadMemoryTurns(conversationId, currentUser);
+
         AtomicReference<StringBuilder> answerBuffer = new AtomicReference<>(new StringBuilder());
         AtomicReference<List<Map<String, Object>>> citationsBuffer = new AtomicReference<>(List.of());
 
-        // Stream answer tokens wrapped in JSON to preserve spacing
-        Flux<ServerSentEvent<String>> answerStream = chatService.streamAnswer(question, effectiveRepoUrl, memoryTurns)
-                .doOnNext(token -> answerBuffer.get().append(token))
-                .map(token -> {
-                    try {
-                        String json = objectMapper.writeValueAsString(Map.of("text", token));
-                        return ServerSentEvent.<String>builder()
-                                .event("message")
-                                .data(json)
-                                .build();
-                    } catch (JsonProcessingException e) {
-                        return ServerSentEvent.<String>builder()
-                                .event("message")
-                                .data("{\"text\":\"\"}")
-                                .build();
-                    }
-                });
+        // Perform initialization and single-pass retrieval off the Netty event loop
+        return Mono.fromCallable(() -> {
+            String resolvedRepoUrl = resolveRepoUrl(repoUrl, conversationId, currentUser);
+            List<String> memoryTurns = loadMemoryTurns(conversationId, currentUser);
+            ChatService.ChatContext chatContext = chatService.prepareChatContext(question, resolvedRepoUrl, memoryTurns);
+            citationsBuffer.set(chatContext.citations());
+            return new InitialChatParams(resolvedRepoUrl, memoryTurns, chatContext);
+        })
+        .subscribeOn(Schedulers.boundedElastic())
+        .flatMapMany(params -> {
+            // Stream answer tokens wrapped in JSON to preserve spacing
+            Flux<ServerSentEvent<String>> answerStream = chatService.streamAnswerWithContext(params.chatContext())
+                    .doOnNext(token -> answerBuffer.get().append(token))
+                    .map(token -> {
+                        try {
+                            String json = objectMapper.writeValueAsString(Map.of("text", token));
+                            return ServerSentEvent.<String>builder()
+                                    .event("message")
+                                    .data(json)
+                                    .build();
+                        } catch (JsonProcessingException e) {
+                            return ServerSentEvent.<String>builder()
+                                    .event("message")
+                                    .data("{\"text\":\"\"}")
+                                    .build();
+                        }
+                    });
 
-        // After answer completes, emit citations as a final event
-        Flux<ServerSentEvent<String>> citationsEvent = Mono
-                .fromCallable(() -> chatService.retrieveCitations(question, effectiveRepoUrl))
-                .subscribeOn(Schedulers.boundedElastic())
-                .doOnNext(citationsBuffer::set)
-                .map(citations -> {
-                    try {
-                        String json = objectMapper.writeValueAsString(citations);
-                        return ServerSentEvent.<String>builder()
-                                .event("citations")
-                                .data(json)
-                                .build();
-                    } catch (JsonProcessingException e) {
-                        return ServerSentEvent.<String>builder()
-                                .event("citations")
-                                .data("[]")
-                                .build();
-                    }
-                })
-                .flux();
+            // Emit citations from the pre-computed single retrieval pass
+            Flux<ServerSentEvent<String>> citationsEvent = Mono.fromCallable(() -> {
+                        try {
+                            String json = objectMapper.writeValueAsString(citationsBuffer.get());
+                            return ServerSentEvent.<String>builder()
+                                    .event("citations")
+                                    .data(json)
+                                    .build();
+                        } catch (JsonProcessingException e) {
+                            return ServerSentEvent.<String>builder()
+                                    .event("citations")
+                                    .data("[]")
+                                    .build();
+                        }
+                    })
+                    .flux();
 
-        // Done sentinel
-        Flux<ServerSentEvent<String>> doneEvent = Flux.just(
-                ServerSentEvent.<String>builder()
-                        .event("done")
-                        .data("[DONE]")
-                        .build()
-        );
+            // Done sentinel
+            Flux<ServerSentEvent<String>> doneEvent = Flux.just(
+                    ServerSentEvent.<String>builder()
+                            .event("done")
+                            .data("[DONE]")
+                            .build()
+            );
 
-        Mono<Void> persistMessages = Mono.fromRunnable(() ->
-                persistConversationMessages(conversationId, question, answerBuffer.get().toString(), citationsBuffer.get(), currentUser)
-        ).subscribeOn(Schedulers.boundedElastic()).then();
+            Mono<Void> persistMessages = Mono.fromRunnable(() ->
+                    persistConversationMessages(conversationId, question, answerBuffer.get().toString(), citationsBuffer.get(), currentUser)
+            ).subscribeOn(Schedulers.boundedElastic()).then();
 
-        return answerStream
-                .concatWith(citationsEvent)
-                .concatWith(persistMessages.thenMany(Flux.empty()))
-                .concatWith(doneEvent)
-                .onErrorResume(e -> {
-                    log.error("Streaming error: {}", e.getMessage(), e);
-                    return Flux.just(ServerSentEvent.<String>builder()
-                            .event("error")
-                            .data("An error occurred: " + e.getMessage())
-                            .build());
-                });
+            return answerStream
+                    .concatWith(citationsEvent)
+                    .concatWith(persistMessages.thenMany(Flux.empty()))
+                    .concatWith(doneEvent);
+        })
+        .onErrorResume(e -> {
+            log.error("Streaming error: {}", e.getMessage(), e);
+            return Flux.just(ServerSentEvent.<String>builder()
+                    .event("error")
+                    .data("An error occurred: " + e.getMessage())
+                    .build());
+        });
     }
 
     private String resolveRepoUrl(String repoUrl, UUID conversationId, UserEntity currentUser) {

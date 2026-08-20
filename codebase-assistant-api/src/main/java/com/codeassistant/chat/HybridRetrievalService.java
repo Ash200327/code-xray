@@ -1,7 +1,7 @@
 package com.codeassistant.chat;
 
+import com.codeassistant.config.RagProperties;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.document.Document;
 import org.springframework.ai.vectorstore.SearchRequest;
 import org.springframework.ai.vectorstore.VectorStore;
 import org.springframework.stereotype.Service;
@@ -14,6 +14,7 @@ public class HybridRetrievalService {
 
     private final VectorStore vectorStore;
     private final KeywordSearchService keywordSearchService;
+    private final RagProperties ragProperties;
 
     public List<Map<String, Object>> retrieve(String question, SearchRequest searchRequest, String normalizedRepoUrl) {
         List<Map<String, Object>> vectorResults = vectorStore.similaritySearch(searchRequest).stream()
@@ -33,10 +34,11 @@ public class HybridRetrievalService {
                                                      List<Map<String, Object>> keywordResults,
                                                      int topK) {
         LinkedHashMap<String, Map<String, Object>> merged = new LinkedHashMap<>();
+        double decay = ragProperties.getRankDecay();
 
         for (int i = 0; i < vectorResults.size(); i++) {
             Map<String, Object> m = new HashMap<>(vectorResults.get(i));
-            double score = 1.0 - (i * 0.08);
+            double score = Math.max(0.0, 1.0 - (i * decay));
             m.put("hybrid_score", score);
             m.put("retrieval_confidence", confidenceLabel(score));
             m.put("match_reason", "semantic similarity match");
@@ -46,7 +48,7 @@ public class HybridRetrievalService {
         for (int i = 0; i < keywordResults.size(); i++) {
             Map<String, Object> incoming = keywordResults.get(i);
             String key = key(incoming);
-            double keywordRankScore = 1.0 - (i * 0.08);
+            double keywordRankScore = Math.max(0.0, 1.0 - (i * decay));
             Map<String, Object> existing = merged.get(key);
             if (existing == null) {
                 Map<String, Object> m = new HashMap<>(incoming);
@@ -56,7 +58,7 @@ public class HybridRetrievalService {
                 merged.put(key, m);
             } else {
                 double existingScore = asDouble(existing.get("hybrid_score"));
-                double boosted = Math.max(existingScore, keywordRankScore) + 0.15;
+                double boosted = Math.max(existingScore, keywordRankScore) + ragProperties.getHybridBoost();
                 existing.put("hybrid_score", boosted);
                 existing.put("retrieval_source", "hybrid");
                 if (incoming.get("keyword_score") != null) {
@@ -93,5 +95,4 @@ public class HybridRetrievalService {
         }
         return "low";
     }
-
 }

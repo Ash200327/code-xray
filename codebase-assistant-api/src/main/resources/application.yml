@@ -97,6 +97,13 @@ codeassistant:
       - "**/generated/**"
     jobs:
       max-attempts: 3
+  rag:
+    top-k: 8
+    similarity-threshold: 0.2
+    rank-decay: 0.08
+    hybrid-boost: 0.15
+    max-context-chunks: 5
+    memory-turns-count: 8
   retrieval:
     keyword:
       vector-table: vector_store

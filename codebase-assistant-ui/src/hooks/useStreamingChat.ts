@@ -9,8 +9,8 @@ export function useStreamingChat() {
   const sendMessage = useCallback((question: string, repoUrl: string, conversationId?: string) => {
     if (isStreaming) return;
 
-    const userId = createMessageId();
-    const assistantId = createMessageId();
+    const userId = crypto.randomUUID();
+    const assistantId = crypto.randomUUID();
 
     // Add user + assistant placeholder in one state update to avoid ordering/race issues.
     setMessages(prev => [
@@ -91,9 +91,4 @@ export function useStreamingChat() {
   const setMessageHistory = useCallback((history: ChatMessage[]) => setMessages(history), []);
 
   return { messages, isStreaming, sendMessage, clearMessages, setMessageHistory };
-}
-
-function createMessageId(): number {
-  // Date-based IDs can collide when messages are created in quick succession.
-  return Math.floor(Math.random() * 1_000_000_000);
 }

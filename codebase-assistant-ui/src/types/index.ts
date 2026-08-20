@@ -15,7 +15,7 @@ export interface Citation {
 }
 
 export interface ChatMessage {
-  id: number;
+  id: string | number;
   role: 'user' | 'assistant';
   content: string;
   citations: Citation[];

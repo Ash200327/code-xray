@@ -8,6 +8,7 @@ import com.codeassistant.model.CreateRepositoryRequest;
 import com.codeassistant.model.RepositoryView;
 import com.codeassistant.repository.RepositoryEntityRepository;
 import com.codeassistant.repository.WorkspaceRepository;
+import com.codeassistant.util.RepoUrlUtils;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -30,7 +31,7 @@ public class RepositoryService {
         entity.setId(UUID.randomUUID());
         entity.setWorkspace(workspace);
         entity.setName(request.getName().trim());
-        entity.setRepoUrl(normalizeRepoUrl(request.getRepoUrl()));
+        entity.setRepoUrl(RepoUrlUtils.normalizeRepoUrl(request.getRepoUrl()));
         entity.setBranch(defaultBranch(request.getBranch()));
         entity.setUser(user);
 
@@ -68,7 +69,7 @@ public class RepositoryService {
 
         entity.setWorkspace(workspace);
         entity.setName(request.getName().trim());
-        entity.setRepoUrl(normalizeRepoUrl(request.getRepoUrl()));
+        entity.setRepoUrl(RepoUrlUtils.normalizeRepoUrl(request.getRepoUrl()));
         entity.setBranch(defaultBranch(request.getBranch()));
         return toView(repositoryRepository.save(entity));
     }
@@ -91,17 +92,6 @@ public class RepositoryService {
                 .updatedAt(entity.getUpdatedAt())
                 .lastIngestedAt(entity.getLastIngestedAt())
                 .build();
-    }
-
-    private String normalizeRepoUrl(String repoUrl) {
-        String normalized = repoUrl.trim();
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        if (normalized.endsWith(".git")) {
-            normalized = normalized.substring(0, normalized.length() - 4);
-        }
-        return normalized;
     }
 
     private String defaultBranch(String branch) {

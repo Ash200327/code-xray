@@ -3,13 +3,14 @@ package com.codeassistant.ingestion;
 import com.codeassistant.api.ResourceNotFoundException;
 import com.codeassistant.domain.IngestionJobEntity;
 import com.codeassistant.domain.RepositoryEntity;
+import com.codeassistant.domain.UserEntity;
 import com.codeassistant.model.IngestRequest;
 import com.codeassistant.model.IngestResult;
 import com.codeassistant.model.IngestionJobView;
 import com.codeassistant.model.IngestionProgressEvent;
-import com.codeassistant.domain.UserEntity;
 import com.codeassistant.repository.IngestionJobRepository;
 import com.codeassistant.repository.RepositoryEntityRepository;
+import com.codeassistant.util.RepoUrlUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -45,7 +46,7 @@ public class IngestionJobService {
 
         IngestionJobEntity entity = new IngestionJobEntity();
         entity.setId(UUID.randomUUID());
-        entity.setRepoUrl(normalizeRepoUrl(request.getRepoUrl()));
+        entity.setRepoUrl(RepoUrlUtils.normalizeRepoUrl(request.getRepoUrl()));
         entity.setBranch(defaultBranch(request.getBranch()));
         entity.setStatus(IngestionJobStatus.QUEUED.name());
         entity.setAttempt(0);
@@ -294,7 +295,7 @@ public class IngestionJobService {
                     repository.setId(UUID.randomUUID());
                     repository.setRepoUrl(repoUrl);
                     repository.setBranch(branch);
-                    repository.setName(deriveRepoName(repoUrl));
+                    repository.setName(RepoUrlUtils.deriveRepoName(repoUrl));
                     repository.setWorkspace(null);
                     return repositoryRepository.save(repository);
                 });
@@ -305,35 +306,16 @@ public class IngestionJobService {
         repository.setId(UUID.randomUUID());
         repository.setRepoUrl(repoUrl);
         repository.setBranch(branch);
-        repository.setName(deriveRepoName(repoUrl));
+        repository.setName(RepoUrlUtils.deriveRepoName(repoUrl));
         repository.setWorkspace(null);
         repository.setUser(currentUser);
         return repositoryRepository.save(repository);
-    }
-
-    private String deriveRepoName(String repoUrl) {
-        if (repoUrl == null || repoUrl.isBlank()) {
-            return "repository";
-        }
-        String[] parts = repoUrl.split("/");
-        return parts[parts.length - 1];
     }
 
     private void validateRequest(IngestRequest request) {
         if (request == null || request.getRepoUrl() == null || request.getRepoUrl().trim().isEmpty()) {
             throw new IllegalArgumentException("repoUrl is required");
         }
-    }
-
-    private String normalizeRepoUrl(String repoUrl) {
-        String normalized = repoUrl.trim();
-        if (normalized.endsWith("/")) {
-            normalized = normalized.substring(0, normalized.length() - 1);
-        }
-        if (normalized.endsWith(".git")) {
-            normalized = normalized.substring(0, normalized.length() - 4);
-        }
-        return normalized;
     }
 
     private String defaultBranch(String branch) {

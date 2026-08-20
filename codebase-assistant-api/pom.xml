@@ -69,11 +69,6 @@
             <artifactId>spring-ai-starter-vector-store-pgvector</artifactId>
         </dependency>
 
-        <!-- Spring AI RAG advisor (QuestionAnswerAdvisor) -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-advisors-vector-store</artifactId>
-        </dependency>
 
         <!-- JGit for programmatic git clone -->
         <dependency>
