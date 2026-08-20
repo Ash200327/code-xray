@@ -35,6 +35,3 @@ Thumbs.db
 # Temp / cloned repos
 **/tmp/
 **/temp/
-
-# Allow tracking pre-built production backend jar
-!codebase-assistant-api/target/*.jar
