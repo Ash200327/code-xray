@@ -35,3 +35,9 @@ Thumbs.db
 # Temp / cloned repos
 **/tmp/
 **/temp/
+
+# Private Project Documentation
+deployment-guide.md
+interview-script.md
+ARCHITECTURE_AND_API.md
+architecture*.md
